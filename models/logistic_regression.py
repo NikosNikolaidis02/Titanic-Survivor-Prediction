@@ -1,17 +1,16 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import cross_val_score
 
 
-class DecisionTreeModel:
-    """Decision Tree classifier wrapper for the Titanic pipeline."""
+class LogisticRegressionModel:
+    """Logistic Regression classifier wrapper for the Titanic pipeline."""
 
-    def __init__(self, features: list, max_depth: int = 5, min_samples_leaf: int = 10, random_state: int = 42):
+    def __init__(self, features: list, max_iter: int = 1000, random_state: int = 42):
         self.features = features
-        self.model = DecisionTreeClassifier(
-            max_depth=max_depth,
-            min_samples_leaf=min_samples_leaf,
+        self.model = LogisticRegression(
+            max_iter=max_iter,
             random_state=random_state,
         )
 
@@ -32,9 +31,11 @@ class DecisionTreeModel:
         print(f"\nCross-validation accuracy ({cv}-fold): {scores.mean():.4f} (+/- {scores.std():.4f})")
 
     def feature_importance(self) -> None:
-        """Print features ranked by importance."""
-        importance = pd.Series(self.model.feature_importances_, index=self.features).sort_values(ascending=False)
-        print("\nFeature importance:")
+        """Print feature coefficients ranked by absolute value."""
+        importance = pd.Series(
+            self.model.coef_[0], index=self.features
+        ).abs().sort_values(ascending=False)
+        print("\nFeature coefficients (absolute value):")
         print(importance.to_string())
 
     def predict(self, X: pd.DataFrame) -> pd.Series:

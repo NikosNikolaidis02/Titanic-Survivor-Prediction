@@ -1,18 +1,21 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from xgboost import XGBClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import cross_val_score
 
 
-class DecisionTreeModel:
-    """Decision Tree classifier wrapper for the Titanic pipeline."""
+class XGBoostModel:
+    """XGBoost classifier wrapper for the Titanic pipeline."""
 
-    def __init__(self, features: list, max_depth: int = 5, min_samples_leaf: int = 10, random_state: int = 42):
+    def __init__(self, features: list, n_estimators: int = 100, max_depth: int = 5, learning_rate: float = 0.1, random_state: int = 42):
         self.features = features
-        self.model = DecisionTreeClassifier(
+        self.model = XGBClassifier(
+            n_estimators=n_estimators,
             max_depth=max_depth,
-            min_samples_leaf=min_samples_leaf,
+            learning_rate=learning_rate,
             random_state=random_state,
+            eval_metric="logloss",
+            verbosity=0,
         )
 
     def train(self, X: pd.DataFrame, y: pd.Series) -> None:
@@ -33,7 +36,9 @@ class DecisionTreeModel:
 
     def feature_importance(self) -> None:
         """Print features ranked by importance."""
-        importance = pd.Series(self.model.feature_importances_, index=self.features).sort_values(ascending=False)
+        importance = pd.Series(
+            self.model.feature_importances_, index=self.features
+        ).sort_values(ascending=False)
         print("\nFeature importance:")
         print(importance.to_string())
 

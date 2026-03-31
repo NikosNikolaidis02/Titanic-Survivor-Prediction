@@ -1,6 +1,9 @@
 import pandas as pd
 from preprocessing import compute_imputation_stats, preprocess
 from models.decision_tree import DecisionTreeModel
+from models.random_forest import RandomForestModel
+from models.logistic_regression import LogisticRegressionModel
+from models.xgboost_model import XGBoostModel
 
 # --- Parameters: choose which features to include in the model ---
 FEATURES = [
@@ -9,7 +12,7 @@ FEATURES = [
     "Age",
     "Fare",
     #"SibSp",
-    #"Parch",
+    "Parch",
     #"Embarked",
     "HasCabin",
     #"HasSiblings",
@@ -35,14 +38,36 @@ y_train = train["Survived"]
 X_test = preprocess(test, FEATURES, impute_stats)
 
 # --- Decision Tree ---
+print("--- Decision Tree ---")
 dt = DecisionTreeModel(features=FEATURES)
 dt.train(X_train, y_train)
 dt.evaluate(X_train, y_train)
-dt.cross_validate(X_train, y_train)
 dt.feature_importance()
 
+# --- Random Forest ---
+print("\n--- Random Forest ---")
+rf = RandomForestModel(features=FEATURES)
+rf.train(X_train, y_train)
+rf.evaluate(X_train, y_train)
+rf.feature_importance()
+
+# --- Logistic Regression ---
+print("\n--- Logistic Regression ---")
+lr = LogisticRegressionModel(features=FEATURES)
+lr.train(X_train, y_train)
+lr.evaluate(X_train, y_train)
+lr.feature_importance()
+
+# --- XGBoost ---
+print("\n--- XGBoost ---")
+xgb = XGBoostModel(features=FEATURES)
+xgb.train(X_train, y_train)
+xgb.evaluate(X_train, y_train)
+xgb.feature_importance()
+
 # --- Generate submission file ---
-# predictions = dt.predict(X_test)
+# model = xgb  # swap to whichever model performed best
+# predictions = model.predict(X_test)
 # submission = pd.DataFrame({"PassengerId": test["PassengerId"], "Survived": predictions})
-# submission.to_csv("submission_dt.csv", index=False)
-# print("submission_dt.csv saved.")
+# submission.to_csv("submission.csv", index=False)
+# print("submission.csv saved.")

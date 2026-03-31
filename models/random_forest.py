@@ -1,15 +1,16 @@
 import pandas as pd
-from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
 from sklearn.model_selection import cross_val_score
 
 
-class DecisionTreeModel:
-    """Decision Tree classifier wrapper for the Titanic pipeline."""
+class RandomForestModel:
+    """Random Forest classifier wrapper for the Titanic pipeline."""
 
-    def __init__(self, features: list, max_depth: int = 5, min_samples_leaf: int = 10, random_state: int = 42):
+    def __init__(self, features: list, n_estimators: int = 100, max_depth: int = 5, min_samples_leaf: int = 10, random_state: int = 42):
         self.features = features
-        self.model = DecisionTreeClassifier(
+        self.model = RandomForestClassifier(
+            n_estimators=n_estimators,
             max_depth=max_depth,
             min_samples_leaf=min_samples_leaf,
             random_state=random_state,
