@@ -1,5 +1,5 @@
 import pandas as pd
-from preprocessing import compute_imputation_stats, preprocess
+from preprocessing import preprocess
 from models.decision_tree import DecisionTreeModel
 from models.random_forest import RandomForestModel
 from models.logistic_regression import LogisticRegressionModel
@@ -12,9 +12,10 @@ FEATURES = [
     "Age",
     "Fare",
     #"SibSp",
-    "Parch",
+    #"Parch",
     #"Embarked",
     "HasCabin",
+    "CabinDeck",
     #"HasSiblings",
     #"AgeGroup",
     #"FareGroup",
@@ -32,37 +33,43 @@ print(test.isnull().sum()[test.isnull().sum() > 0].to_string())
 print()
 
 # --- Preprocessing ---
-impute_stats = compute_imputation_stats(train)
-X_train = preprocess(train, FEATURES, impute_stats)
+train = train.dropna(subset=["Age"])
+
+# Compute imputation statistics from training data only
+age_median = train["Age"].mean()
+fare_median = train["Fare"].mean()
+embarked_mode = train["Embarked"].mode()[0]
+
+X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode)
 y_train = train["Survived"]
-X_test = preprocess(test, FEATURES, impute_stats)
+X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode)
 
 # --- Decision Tree ---
 print("--- Decision Tree ---")
 dt = DecisionTreeModel(features=FEATURES)
 dt.train(X_train, y_train)
-dt.evaluate(X_train, y_train)
+dt.cross_validate(X_train, y_train)
 dt.feature_importance()
 
 # --- Random Forest ---
 print("\n--- Random Forest ---")
 rf = RandomForestModel(features=FEATURES)
 rf.train(X_train, y_train)
-rf.evaluate(X_train, y_train)
+rf.cross_validate(X_train, y_train)
 rf.feature_importance()
 
 # --- Logistic Regression ---
 print("\n--- Logistic Regression ---")
 lr = LogisticRegressionModel(features=FEATURES)
 lr.train(X_train, y_train)
-lr.evaluate(X_train, y_train)
+lr.cross_validate(X_train, y_train)
 lr.feature_importance()
 
 # --- XGBoost ---
 print("\n--- XGBoost ---")
 xgb = XGBoostModel(features=FEATURES)
 xgb.train(X_train, y_train)
-xgb.evaluate(X_train, y_train)
+xgb.cross_validate(X_train, y_train)
 xgb.feature_importance()
 
 # --- Generate submission file ---
