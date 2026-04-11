@@ -8,6 +8,7 @@ def preprocess(
     age_median: float = None,
     fare_median: float = None,
     embarked_mode: str = None,
+    age_by_title: dict = None,
 ) -> pd.DataFrame:
     """
     Apply feature engineering and preprocessing.
@@ -27,6 +28,8 @@ def preprocess(
         age_median    : Imputation value for Age; computed from df if not provided.
         fare_median   : Imputation value for Fare; computed from df if not provided.
         embarked_mode : Imputation value for Embarked; computed from df if not provided.
+        age_by_title  : Dict mapping Title → median Age (computed from train). When provided,
+                        imputes missing Age per title group; falls back to age_median.
 
     Returns:
         Preprocessed dataframe with only the selected features.
@@ -48,9 +51,32 @@ def preprocess(
 
     df["HasSiblings"] = (df["SibSp"] > 0).astype(int)
 
-    age = df["Age"].fillna(age_median)
+    df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
+    df["FamilySizeGroup"] = pd.cut(
+        df["FamilySize"],
+        bins=[0, 1, 4, 20],
+        labels=[0, 1, 2],  # 0=Solo, 1=Regular(2–4), 2=Big(5+)
+    ).astype(int)
+
+    # --- Title extraction ---
+    df["Title"] = df["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
+    df["Title"] = df["Title"].replace(
+        ["Lady", "Countess", "Capt", "Col", "Don", "Dr", "Major", "Rev", "Sir", "Jonkheer", "Dona"],
+        "Rare",
+    )
+    df["Title"] = df["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
+
+    # --- Age imputation (title-based if available, global median fallback) ---
+    if age_by_title:
+        df["Age"] = df.apply(
+            lambda row: age_by_title.get(row["Title"], age_median) if pd.isna(row["Age"]) else row["Age"],
+            axis=1,
+        )
+    else:
+        df["Age"] = df["Age"].fillna(age_median)
+
     df["AgeGroup"] = pd.cut(
-        age,
+        df["Age"],
         bins=[0, 20, 35, 50, 75, 100],
         labels=[0, 1, 2, 3, 4],
     ).astype(int)
@@ -61,6 +87,7 @@ def preprocess(
         bins=[-1, 8, 15, 31, 513],
         labels=[0, 1, 2, 3],
     ).astype(int)
+    df["FarePerPerson"] = fare / df["FamilySize"]
 
     # --- Select features ---
     df = df[features].copy()
@@ -77,9 +104,13 @@ def preprocess(
         df["CabinDeck"] = LabelEncoder().fit_transform(df["CabinDeck"])
 
     if "Age" in features:
-        df["Age"] = df["Age"].fillna(age_median)
+        df["Age"] = df["Age"].fillna(age_median)  # safety fallback
 
     if "Fare" in features:
         df["Fare"] = df["Fare"].fillna(fare_median)
+
+    if "Title" in features:
+        title_map = {"Master": 0, "Miss": 1, "Mr": 2, "Mrs": 3, "Rare": 4}
+        df["Title"] = df["Title"].map(title_map).fillna(4).astype(int)
 
     return df

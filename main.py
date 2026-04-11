@@ -10,15 +10,18 @@ FEATURES = [
     "Pclass",
     "Sex",
     "Age",
-    "Fare",
+    #"Fare",
     #"SibSp",
     #"Parch",
     #"Embarked",
-    "HasCabin",
+    #"HasCabin",
     "CabinDeck",
+    "Title",
     #"HasSiblings",
     #"AgeGroup",
     #"FareGroup",
+    "FamilySizeGroup",
+    "FarePerPerson",
 ]
 
 # --- Load data ---
@@ -33,16 +36,24 @@ print(test.isnull().sum()[test.isnull().sum() > 0].to_string())
 print()
 
 # --- Preprocessing ---
-train = train.dropna(subset=["Age"])
 
 # Compute imputation statistics from training data only
 age_median = train["Age"].mean()
 fare_median = train["Fare"].mean()
 embarked_mode = train["Embarked"].mode()[0]
 
-X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode)
+# Compute title-based age medians from training data
+_train = train.copy()
+_train["Title"] = _train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
+_train["Title"] = _train["Title"].replace(
+    ["Lady", "Countess", "Capt", "Col", "Don", "Dr", "Major", "Rev", "Sir", "Jonkheer", "Dona"], "Rare"
+)
+_train["Title"] = _train["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
+age_by_title = _train.groupby("Title")["Age"].median().to_dict()
+
+X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
 y_train = train["Survived"]
-X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode)
+X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
 
 # --- Decision Tree ---
 print("--- Decision Tree ---")
