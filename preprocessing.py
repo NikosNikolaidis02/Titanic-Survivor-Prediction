@@ -9,6 +9,7 @@ def preprocess(
     fare_median: float = None,
     embarked_mode: str = None,
     age_by_title: dict = None,
+    rare_titles: set = None,
 ) -> pd.DataFrame:
     """
     Apply feature engineering and preprocessing.
@@ -30,6 +31,8 @@ def preprocess(
         embarked_mode : Imputation value for Embarked; computed from df if not provided.
         age_by_title  : Dict mapping Title → median Age (computed from train). When provided,
                         imputes missing Age per title group; falls back to age_median.
+        rare_titles   : Set of title strings to consolidate into "Rare". Computed from train
+                        using a frequency threshold; applied after alias normalisation.
 
     Returns:
         Preprocessed dataframe with only the selected features.
@@ -60,13 +63,11 @@ def preprocess(
 
     # --- Title extraction ---
     df["Title"] = df["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
-    df["Title"] = df["Title"].replace(
-        ["Lady", "Countess", "Capt", "Col", "Don", "Dr", "Major", "Rev", "Sir", "Jonkheer", "Dona"],
-        "Rare",
-    )
+    # Normalise aliases before anything else
     df["Title"] = df["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
 
     # --- Age imputation (title-based if available, global median fallback) ---
+    # Uses pre-consolidation titles for more accurate per-title medians
     if age_by_title:
         df["Age"] = df.apply(
             lambda row: age_by_title.get(row["Title"], age_median) if pd.isna(row["Age"]) else row["Age"],
@@ -74,6 +75,10 @@ def preprocess(
         )
     else:
         df["Age"] = df["Age"].fillna(age_median)
+
+    # --- Consolidate rare titles (after age imputation to preserve per-title accuracy) ---
+    if rare_titles:
+        df["Title"] = df["Title"].apply(lambda t: "Rare" if t in rare_titles else t)
 
     df["AgeGroup"] = pd.cut(
         df["Age"],
@@ -110,7 +115,7 @@ def preprocess(
         df["Fare"] = df["Fare"].fillna(fare_median)
 
     if "Title" in features:
-        title_map = {"Master": 0, "Miss": 1, "Mr": 2, "Mrs": 3, "Rare": 4}
-        df["Title"] = df["Title"].map(title_map).fillna(4).astype(int)
+        title_map = {"Master": 0, "Miss": 1, "Mr": 2, "Mrs": 3, "Rev": 4, "Rare": 5}
+        df["Title"] = df["Title"].map(title_map).fillna(5).astype(int)
 
     return df

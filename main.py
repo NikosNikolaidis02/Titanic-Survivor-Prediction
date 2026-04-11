@@ -15,7 +15,7 @@ FEATURES = [
     #"Parch",
     #"Embarked",
     #"HasCabin",
-    "CabinDeck",
+    #"CabinDeck",
     "Title",
     #"HasSiblings",
     #"AgeGroup",
@@ -37,23 +37,37 @@ print()
 
 # --- Preprocessing ---
 
-# Compute imputation statistics from training data only
+# Drop rows whose titles never appear in test — n=1/2 each, extreme rates, no generalisation value
+TRAIN_ONLY_TITLES = {"Lady", "Countess", "Don", "Jonkheer", "Capt", "Sir", "Major"}
+_titles_raw = train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False).replace(
+    {"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"}
+)
+dropped = _titles_raw.isin(TRAIN_ONLY_TITLES).sum()
+train = train[~_titles_raw.isin(TRAIN_ONLY_TITLES)].reset_index(drop=True)
+print(f"Dropped {dropped} rows with train-only titles: {TRAIN_ONLY_TITLES}\n")
+
+# Compute imputation statistics from cleaned training data only
 age_median = train["Age"].mean()
 fare_median = train["Fare"].mean()
 embarked_mode = train["Embarked"].mode()[0]
 
-# Compute title-based age medians from training data
+TITLE_MIN_COUNT = 10
+
+# Compute title-based statistics from cleaned training data only
 _train = train.copy()
 _train["Title"] = _train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
-_train["Title"] = _train["Title"].replace(
-    ["Lady", "Countess", "Capt", "Col", "Don", "Dr", "Major", "Rev", "Sir", "Jonkheer", "Dona"], "Rare"
-)
 _train["Title"] = _train["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
+title_counts = _train["Title"].value_counts()
+rare_titles = set(title_counts[title_counts < TITLE_MIN_COUNT].index)
+rare_titles.discard("Rev")  # kept as own category — all Revs in training died
 age_by_title = _train.groupby("Title")["Age"].median().to_dict()
+print(f"Title counts:\n{title_counts.to_string()}")
+print(f"\nRare titles (< {TITLE_MIN_COUNT}): {rare_titles}")
+print(f"Rev kept separately (n={title_counts.get('Rev', 0)}, 0% survival)\n")
 
-X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
+X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title, rare_titles)
 y_train = train["Survived"]
-X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
+X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title, rare_titles)
 
 # --- Decision Tree ---
 print("--- Decision Tree ---")
@@ -79,13 +93,14 @@ lr.feature_importance()
 # --- XGBoost ---
 print("\n--- XGBoost ---")
 xgb = XGBoostModel(features=FEATURES)
+xgb.tune(X_train, y_train)
 xgb.train(X_train, y_train)
 xgb.cross_validate(X_train, y_train)
 xgb.feature_importance()
 
 # --- Generate submission file ---
-# model = xgb  # swap to whichever model performed best
-# predictions = model.predict(X_test)
-# submission = pd.DataFrame({"PassengerId": test["PassengerId"], "Survived": predictions})
-# submission.to_csv("submission.csv", index=False)
-# print("submission.csv saved.")
+model = xgb  # swap to whichever model performed best
+predictions = model.predict(X_test)
+submission = pd.DataFrame({"PassengerId": test["PassengerId"], "Survived": predictions})
+submission.to_csv("submission.csv", index=False)
+print("submission.csv saved.")
