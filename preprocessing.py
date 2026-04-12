@@ -115,7 +115,9 @@ def preprocess(
         df["Fare"] = df["Fare"].fillna(fare_median)
 
     if "Title" in features:
-        title_map = {"Master": 0, "Miss": 1, "Mr": 2, "Mrs": 3, "Rev": 4, "Rare": 5}
-        df["Title"] = df["Title"].map(title_map).fillna(5).astype(int)
+        # Fixed map covering all titles present after train-only row removal.
+        # Unseen titles in test (e.g. Dona) fall back to 7.
+        title_map = {"Master": 0, "Miss": 1, "Mr": 2, "Mrs": 3, "Rev": 4, "Dr": 5, "Col": 6}
+        df["Title"] = df["Title"].map(title_map).fillna(7).astype(int)
 
     return df

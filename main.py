@@ -8,14 +8,14 @@ from models.xgboost_model import XGBoostModel
 # --- Parameters: choose which features to include in the model ---
 FEATURES = [
     "Pclass",
-    "Sex",
+    #"Sex",
     "Age",
     #"Fare",
     #"SibSp",
     #"Parch",
     #"Embarked",
-    #"HasCabin",
-    #"CabinDeck",
+    "HasCabin",
+    "CabinDeck",
     "Title",
     #"HasSiblings",
     #"AgeGroup",
@@ -23,6 +23,9 @@ FEATURES = [
     "FamilySizeGroup",
     "FarePerPerson",
 ]
+
+FEATURES = ['Pclass', 'Age', 'Title', 'FamilySizeGroup', 'FarePerPerson', 'CabinDeck', 'HasCabin']
+
 
 # --- Load data ---
 train = pd.read_csv("train.csv")
@@ -51,23 +54,17 @@ age_median = train["Age"].mean()
 fare_median = train["Fare"].mean()
 embarked_mode = train["Embarked"].mode()[0]
 
-TITLE_MIN_COUNT = 10
-
 # Compute title-based statistics from cleaned training data only
 _train = train.copy()
 _train["Title"] = _train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
 _train["Title"] = _train["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
 title_counts = _train["Title"].value_counts()
-rare_titles = set(title_counts[title_counts < TITLE_MIN_COUNT].index)
-rare_titles.discard("Rev")  # kept as own category — all Revs in training died
 age_by_title = _train.groupby("Title")["Age"].median().to_dict()
-print(f"Title counts:\n{title_counts.to_string()}")
-print(f"\nRare titles (< {TITLE_MIN_COUNT}): {rare_titles}")
-print(f"Rev kept separately (n={title_counts.get('Rev', 0)}, 0% survival)\n")
+print(f"Title counts:\n{title_counts.to_string()}\n")
 
-X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title, rare_titles)
+X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
 y_train = train["Survived"]
-X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title, rare_titles)
+X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
 
 # --- Decision Tree ---
 print("--- Decision Tree ---")
@@ -93,7 +90,6 @@ lr.feature_importance()
 # --- XGBoost ---
 print("\n--- XGBoost ---")
 xgb = XGBoostModel(features=FEATURES)
-xgb.tune(X_train, y_train)
 xgb.train(X_train, y_train)
 xgb.cross_validate(X_train, y_train)
 xgb.feature_importance()
