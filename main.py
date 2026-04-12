@@ -1,4 +1,6 @@
 import pandas as pd
+from sklearn.ensemble import VotingClassifier
+from sklearn.model_selection import cross_val_score
 from preprocessing import preprocess
 from models.decision_tree import DecisionTreeModel
 from models.random_forest import RandomForestModel
@@ -7,25 +9,7 @@ from models.xgboost_model import XGBoostModel
 from models.svm_model import SVMModel
 
 # --- Parameters: choose which features to include in the model ---
-FEATURES = [
-    "Pclass",
-    #"Sex",
-    "Age",
-    #"Fare",
-    #"SibSp",
-    #"Parch",
-    #"Embarked",
-    "HasCabin",
-    "CabinDeck",
-    "Title",
-    #"HasSiblings",
-    #"AgeGroup",
-    #"FareGroup",
-    "FamilySizeGroup",
-    "FarePerPerson",
-]
-
-FEATURES = ['Pclass', 'Age', 'Title', 'FamilySizeGroup', 'FarePerPerson', 'CabinDeck', 'HasCabin']
+FEATURES = ["Pclass", "Sex", "Age", "Title", "FamilySizeGroup", "FarePerPerson"]
 
 
 # --- Load data ---
@@ -101,9 +85,18 @@ xgb.train(X_train, y_train)
 xgb.cross_validate(X_train, y_train)
 xgb.feature_importance()
 
+# --- Soft Voting Ensemble (XGBoost + Decision Tree) ---
+print("\n--- Soft Voting Ensemble (XGBoost + Decision Tree) ---")
+ensemble = VotingClassifier(
+    estimators=[("xgb", xgb.model), ("dt", dt.model)],
+    voting="soft",
+)
+ensemble_scores = cross_val_score(ensemble, X_train, y_train, cv=5)
+print(f"\nCross-validation accuracy (5-fold): {ensemble_scores.mean():.4f} (+/- {ensemble_scores.std():.4f})")
+ensemble.fit(X_train, y_train)
+
 # --- Generate submission file ---
-model = xgb  # swap to whichever model performed best
-predictions = model.predict(X_test)
+predictions = ensemble.predict(X_test)
 submission = pd.DataFrame({"PassengerId": test["PassengerId"], "Survived": predictions})
 submission.to_csv("submission.csv", index=False)
 print("submission.csv saved.")
