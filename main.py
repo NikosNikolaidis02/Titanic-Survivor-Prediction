@@ -4,6 +4,7 @@ from models.decision_tree import DecisionTreeModel
 from models.random_forest import RandomForestModel
 from models.logistic_regression import LogisticRegressionModel
 from models.xgboost_model import XGBoostModel
+from models.svm_model import SVMModel
 
 # --- Parameters: choose which features to include in the model ---
 FEATURES = [
@@ -86,6 +87,12 @@ lr = LogisticRegressionModel(features=FEATURES)
 lr.train(X_train, y_train)
 lr.cross_validate(X_train, y_train)
 lr.feature_importance()
+
+# --- SVM ---
+print("\n--- SVM ---")
+svm = SVMModel(features=FEATURES)
+svm.train(X_train, y_train)
+svm.cross_validate(X_train, y_train)
 
 # --- XGBoost ---
 print("\n--- XGBoost ---")
