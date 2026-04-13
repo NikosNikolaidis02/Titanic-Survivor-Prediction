@@ -80,6 +80,8 @@ def preprocess(
     if rare_titles:
         df["Title"] = df["Title"].apply(lambda t: "Rare" if t in rare_titles else t)
 
+    df["IsChild"] = (df["Age"] < 12).astype(int)
+
     df["AgeGroup"] = pd.cut(
         df["Age"],
         bins=[0, 20, 35, 50, 75, 100],

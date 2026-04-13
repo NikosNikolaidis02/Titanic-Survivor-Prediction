@@ -9,7 +9,7 @@ from models.xgboost_model import XGBoostModel
 from models.svm_model import SVMModel
 
 # --- Parameters: choose which features to include in the model ---
-FEATURES = ["Pclass", "Sex", "Age", "Title", "FamilySizeGroup", "FarePerPerson"]
+FEATURES = ["Pclass", "Sex", "Age", "Title", "FamilySizeGroup", "CabinDeck", "IsChild"]
 
 
 # --- Load data ---
@@ -30,9 +30,11 @@ TRAIN_ONLY_TITLES = {"Lady", "Countess", "Don", "Jonkheer", "Capt", "Sir", "Majo
 _titles_raw = train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False).replace(
     {"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"}
 )
+
 dropped = _titles_raw.isin(TRAIN_ONLY_TITLES).sum()
 train = train[~_titles_raw.isin(TRAIN_ONLY_TITLES)].reset_index(drop=True)
 print(f"Dropped {dropped} rows with train-only titles: {TRAIN_ONLY_TITLES}\n")
+
 
 # Compute imputation statistics from cleaned training data only
 age_median = train["Age"].mean()
@@ -85,10 +87,10 @@ xgb.train(X_train, y_train)
 xgb.cross_validate(X_train, y_train)
 xgb.feature_importance()
 
-# --- Soft Voting Ensemble (XGBoost + Decision Tree) ---
-print("\n--- Soft Voting Ensemble (XGBoost + Decision Tree) ---")
+# --- Soft Voting Ensemble (XGBoost + Random Forest) ---
+print("\n--- Soft Voting Ensemble (XGBoost + Random Forest) ---")
 ensemble = VotingClassifier(
-    estimators=[("xgb", xgb.model), ("dt", dt.model)],
+    estimators=[("xgb", xgb.model), ("rf", rf.model)],
     voting="soft",
 )
 ensemble_scores = cross_val_score(ensemble, X_train, y_train, cv=5)
