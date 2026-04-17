@@ -41,7 +41,7 @@ def preprocess(
 
     # --- Imputation statistics (use training stats if provided) ---
     if age_median is None:
-        age_median = df["Age"].mean()
+        age_median = df["Age"].median()
     if fare_median is None:
         fare_median = df["Fare"].mean()
     if embarked_mode is None:
