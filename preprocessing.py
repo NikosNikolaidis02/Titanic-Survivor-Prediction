@@ -10,6 +10,7 @@ def preprocess(
     embarked_mode: str = None,
     age_by_title: dict = None,
     rare_titles: set = None,
+    ticket_freq: dict = None,
 ) -> pd.DataFrame:
     """
     Apply feature engineering and preprocessing.
@@ -17,11 +18,14 @@ def preprocess(
     to avoid leaking test distribution into imputed values.
 
     Engineered features available:
-        - HasCabin    : 1 if cabin number was recorded, else 0
-        - CabinDeck   : First letter of Cabin (A–G, T); "U" if unknown — label encoded
-        - HasSiblings : 1 if passenger had siblings/spouses aboard, else 0
-        - AgeGroup    : 0=Child(<20), 1=Teen(20-35), 2=Adult(35-50), 3=Middle-aged(50-75), 4=Senior(75+)
-        - FareGroup   : 0=Low(Q1), 1=Medium(Q2), 2=High(Q3), 3=Premium(Q4)
+        - HasCabin         : 1 if cabin number was recorded, else 0
+        - CabinDeck        : First letter of Cabin (A–G, T); "U" if unknown — label encoded
+        - HasSiblings      : 1 if passenger had siblings/spouses aboard, else 0
+        - AgeGroup         : 0=Child(<20), 1=Teen(20-35), 2=Adult(35-50), 3=Middle-aged(50-75), 4=Senior(75+)
+        - FareGroup        : 0=Low(Q1), 1=Medium(Q2), 2=High(Q3), 3=Premium(Q4)
+        - PclassSex        : Pclass*2 + Sex_binary — 6-value interaction (1F=2,1M=3,...,3M=7)
+        - TicketFrequency  : Number of passengers sharing the same ticket number
+        - IsAlone          : 1 if passenger travelled alone (FamilySize==1), else 0
 
     Args:
         df            : Raw dataframe (train or test).
@@ -33,6 +37,8 @@ def preprocess(
                         imputes missing Age per title group; falls back to age_median.
         rare_titles   : Set of title strings to consolidate into "Rare". Computed from train
                         using a frequency threshold; applied after alias normalisation.
+        ticket_freq   : Dict mapping Ticket → passenger count (computed from train+test combined).
+                        Passengers not in the dict default to 1.
 
     Returns:
         Preprocessed dataframe with only the selected features.
@@ -55,11 +61,18 @@ def preprocess(
     df["HasSiblings"] = (df["SibSp"] > 0).astype(int)
 
     df["FamilySize"] = df["SibSp"] + df["Parch"] + 1
+    df["IsAlone"] = (df["FamilySize"] == 1).astype(int)
+
     df["FamilySizeGroup"] = pd.cut(
         df["FamilySize"],
         bins=[0, 1, 4, 20],
         labels=[0, 1, 2],  # 0=Solo, 1=Regular(2–4), 2=Big(5+)
     ).astype(int)
+
+    # PclassSex must be computed before Sex is label-encoded
+    df["PclassSex"] = df["Pclass"] * 2 + (df["Sex"] == "male").astype(int)
+
+    df["TicketFrequency"] = df["Ticket"].map(ticket_freq).fillna(1).astype(int) if ticket_freq else df.groupby("Ticket")["Ticket"].transform("count")
 
     # --- Title extraction ---
     df["Title"] = df["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)

@@ -32,9 +32,13 @@ _train["Title"] = _train["Name"].str.extract(r" ([A-Za-z]+)\.", expand=False)
 _train["Title"] = _train["Title"].replace({"Mlle": "Miss", "Ms": "Miss", "Mme": "Mrs"})
 age_by_title = _train.groupby("Title")["Age"].median().to_dict()
 
-X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
+# Ticket frequency computed on train+test combined — ticket count is a property of
+# the ticket itself, not the target, so this does not leak survival labels.
+ticket_freq = pd.concat([train["Ticket"], test["Ticket"]]).value_counts().to_dict()
+
+X_train = preprocess(train, FEATURES, age_median, fare_median, embarked_mode, age_by_title, ticket_freq=ticket_freq)
 y_train = train["Survived"]
-X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title)
+X_test = preprocess(test, FEATURES, age_median, fare_median, embarked_mode, age_by_title, ticket_freq=ticket_freq)
 
 # --- Train models ---
 dt = DecisionTreeModel(features=FEATURES)
